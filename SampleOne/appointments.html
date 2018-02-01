@@ -1,0 +1,90 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <script src='http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js'></script>
+</head>
+<body>
+    <div id="error"></div>
+    <form id="form">
+        <input type="datetime-local" id="datetime" placeholder="Select the date and time." />
+        <input type="text" id="desc" placeholder="Enter the description" />
+        <input type="reset" id="btnReset" value="CANCEL" />
+    </form>
+    <br />
+    <input type="button" id="btnNew" value="NEW" />
+    <input type="text" id="txtSearch" />
+    <input type="button" id="btnSearch" value="SEARCH" />
+    <br />
+    <table id="appts" border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</body>
+<script type="text/javascript">
+    $(function () {
+        $('#form').hide();
+        let dateString = new Date().toISOString();
+        //Appointments shouldn't be made in the past.
+        document.getElementById("datetime").min = dateString.substr(0, dateString.lastIndexOf(":"));
+        $("#btnNew").on('click', function () {
+            if ($(this).val() === 'NEW') {
+                $('#form').show();
+                $(this).val('ADD');
+            } else {
+                if (!$('#datetime').val() || !$("#desc").val()) {
+                    alert("Please enter appointment datetime and description.")
+                    return;
+                }
+                var selectedDateTime = new Date($('#datetime').val()).toISOString();
+                let date = selectedDateTime.split('T')[0];
+                let time = selectedDateTime.split('T')[1];
+                let desc = $("#desc").val();
+                $.post("http://localhost:8080/cgi-bin/insert.pl", { datetime: date + " " + time, desc: desc })
+                .done(function (data) {
+                    alert("Response: " + data);
+                    location.reload();
+                });
+            }
+        });
+        $("#btnSearch").on("click", function () {
+            updateDisplay();
+        });
+        updateDisplay();
+    });
+    function updateDisplay() {
+        var opt = {};
+        opt.url = "http://localhost:8080/cgi-bin/search.pl";
+        opt.type = "GET";
+        opt.data = "desc=" + $("#txtSearch").val() + "";
+        opt.dataType = "json";
+        opt.contentType = "application/json; charset=utf-8";
+        opt.success = function (response) {
+            let data = response, items = [];
+            let appts = $('#appts > tbody');
+            appts.empty();
+            for (i in data) {
+                let appdate = new Date(data[i][0]), desc = data[i][1];
+                let date = appdate.toLocaleString("en-us", { month: 'short' }) + " " + appdate.getDate();
+                let time = appdate.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+
+                appts.append($("<tr><td>" + date + "</td><td>" +
+                    time + "</td><td>" +
+                    desc + "</td></tr>"));
+            }
+        };
+        opt.error = function (jqXHR, exception) {
+            $("#error").html(jqXHR.status);
+        }
+        $.ajax(opt);
+    }
+</script>
+</html>
